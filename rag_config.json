@@ -1,0 +1,15 @@
+{
+  "document_directory": "knowledge_docs",
+  "last_update": "2025-07-01T11:14:21.352040",
+  "file_hashes": {
+    "knowledge_docs/deepresearch_agent.pdf": "dfd5bca9d8e6b990daddd72596ec5513"
+  },
+  "chunk_size": 1500,
+  "chunk_overlap": 150,
+  "n_levels": 3,
+  "embedding_model": "text-embedding-3-small",
+  "llm_model": "gpt-4o-mini",
+  "retrieval_k": 6,
+  "batch_size": 20,
+  "max_tokens_per_batch": 100000
+}

@@ -1,0 +1,52 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info/
+*.so
+*.dylib
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Local development settings
+*.env
+
+# Knowledge docs and vector DB files
+knowledge_docs/*
+!knowledge_docs/.gitkeep
+
+# Reference directory (contains embedded git repo)
+Reference/
+
+# Logs
+*.log
+logs/
+
+# Cache files
+.cache/
+.pytest_cache/
+.coverage
