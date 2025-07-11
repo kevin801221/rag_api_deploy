@@ -50,3 +50,7 @@ logs/
 .cache/
 .pytest_cache/
 .coverage
+
+qdrant_storage/
+knowledge_docs
+rag_config.json
