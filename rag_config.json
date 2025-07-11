@@ -1,8 +1,9 @@
 {
   "document_directory": "knowledge_docs",
-  "last_update": "2025-07-01T11:14:21.352040",
+  "last_update": "2025-07-10T17:31:55.221757",
   "file_hashes": {
-    "knowledge_docs/deepresearch_agent.pdf": "dfd5bca9d8e6b990daddd72596ec5513"
+    "knowledge_docs/deepresearch_agent.pdf": "dfd5bca9d8e6b990daddd72596ec5513",
+    "knowledge_docs/2401.07339v2.pdf": "fdf2768f6632646890cfd06e20de56c0"
   },
   "chunk_size": 1500,
   "chunk_overlap": 150,

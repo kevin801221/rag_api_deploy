@@ -1,327 +1,202 @@
-# RAPTOR RAG 系統
+# RAG-RAPTOR API 系統
 
-這是一個基於 RAPTOR (Recursive Abstractive Processing for Tree-structured Ontology Representation) 演算法的 RAG (Retrieval-Augmented Generation) 系統。它旨在提供高效的知識檢索和生成能力，並支援與 Dify 等平台的整合。
+這是一個基於 RAPTOR (Recursive Abstractive Processing for Tree-structured Ontology Representation) 演算法的進階 RAG (Retrieval-Augmented Generation) 系統。本專案透過 FastAPI 將整個服務打包，並使用 Docker 容器化，實現本地端的高效部署。
 
-## 專案概覽
+## 專案核心功能
 
-本專案提供了一個 FastAPI 服務，包含以下核心功能：
+*   **進階 RAG 演算法**：採用 RAPTOR 演算法，將文件遞歸地進行摘要和聚類，建立一個多層次的知識樹，以提升檢索的精準度和上下文的豐富性。
+*   **本地向量資料庫**：整合 Qdrant 作為向量資料庫，所有資料（包含向量和索引）都儲存在本地的 `qdrant_storage` 目錄中，確保資料的持久性和私密性。
+*   **容器化部署**：提供 `docker-compose.yml` 設定，一鍵啟動包含 FastAPI 應用和 Qdrant 資料庫在內的完整服務。
+*   **動態知識庫更新**：提供 API 端點，可以動態地掃描 `knowledge_docs` 目錄下的新文件或修改過的舊文件，並自動將其處理、嵌入並索引到 Qdrant 資料庫中。
+*   **簡單易用的推論 API**：提供清晰的 API 端點，用於對知識庫進行提問，並獲取由大型語言模型（LLM）生成的答案及相關的來源文件。
 
-*   **RAPTOR 演算法**：用於處理非結構化文件，將其轉換為多層次的摘要和嵌入，以優化檢索效率和生成品質。
-*   **向量資料庫整合**：使用 Qdrant 作為向量資料庫，儲存和管理知識庫的向量嵌入。
-*   **Dify 相容的推論 API**：提供符合 Dify 平台規範的問答介面，方便與現有 LLM 應用整合。
-*   **知識庫更新 API**：支援上傳新文件、更新現有文件，並自動將其處理並索引到向量資料庫中。
+---
 
-## 功能特色
+## 安裝與啟動
 
-*   **高效檢索**：RAPTOR 演算法能夠從大量文本中提取關鍵資訊，並以多層次結構儲存，提高檢索的精準度。
-*   **靈活擴展**：基於 FastAPI 框架，易於部署和擴展。
-*   **API 介面**：提供清晰的 RESTful API 介面，方便開發者整合。
+我們強烈建議使用 Docker 進行部署，因為它簡化了所有環境和服務的設定。
 
-## 環境設定
+### 快速開始 (Docker - 推薦)
 
-### 前置條件
+這種方式會同時啟動 FastAPI 應用程式和 Qdrant 向量資料庫兩個服務。
 
-*   Python 3.9+
-*   pip (Python 套件管理器)
-*   Qdrant 實例 (雲端或本地部署)
-*   OpenAI API Key (用於嵌入和語言模型)
+**前置條件:**
+*   [Docker](https://www.docker.com/products/docker-desktop/) 已安裝並正在運行。
+*   `docker-compose` 指令可用 (通常隨 Docker Desktop 一起安裝)。
 
-### 步驟
+**步驟:**
 
 1.  **複製專案**
-
     ```bash
     git clone <你的專案 Git URL>
     cd RAG_poc
     ```
 
-2.  **建立並啟用虛擬環境**
-
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate  # macOS/Linux
-    # venv\\Scripts\\activate  # Windows
-    ```
-
-3.  **設定環境變數**
-
-    在專案根目錄下建立一個 `.env` 檔案，並填入以下內容：
+2.  **設定環境變數**
+    在專案根目錄下，複製或重新命名 `.env.example` (如果有的話) 為 `.env`，或直接建立一個新的 `.env` 檔案。填入以下內容：
 
     ```dotenv
-    # OpenAI API Keys - 每行一個，系統會自動輪調使用這些 Key 來避免速率限制
-    OPENAI_API_KEY_1 = sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-    # OPENAI_API_KEY_2 = sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    # ================= OpenAI API Keys =================
+    # 系統會自動輪調使用這些 Key，以避免單一 Key 的速率限制。
+    # 至少需要提供一個。
+    OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    # OPENAI_API_KEY_2="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    # OPENAI_API_KEY_3="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
-    # Qdrant 配置
-    QDRANT_URL = <你的 Qdrant 服務 URL，例如：https://your-qdrant-instance.qdrant.tech:6333>
-    QDRANT_API_KEY = <你的 Qdrant API Key>
-    QDRANT_COLLECTION = <你的 Qdrant Collection 名稱，例如：qdrant_test>
-
-    # 其他可選配置
-    # DB_CONNECTION_STRING=mysql+pymysql://user:password@host:port/database_name
-    # GEMINI_API_KEY=AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    # ================= Qdrant 配置 =================
+    # 這個 collection 名稱將在 Docker 環境中使用。
+    # 當您啟動 Docker 時，如果這個 collection 不存在，系統會自動建立它。
+    QDRANT_COLLECTION="qdrant_test"
     ```
+    **重要提示**: `docker-compose.yml` 已被設定為會讀取此 `.env` 檔案中的 `QDRANT_COLLECTION` 變數。
 
-    **重要提示**：請確保您的 `QDRANT_API_KEY` 具有足夠的權限來創建和管理指定的 `QDRANT_COLLECTION`。
-
-4.  **安裝依賴**
-
-    **使用 pip**：
+3.  **建立並啟動 Docker 容器**
+    在專案根目錄下，執行以下指令：
     ```bash
-    pip install -r requirements.txt # 如果有 requirements.txt
-    # 或者手動安裝所有依賴 (請參考專案中的 setup.py 或直接安裝以下常用套件)
-    pip install fastapi uvicorn python-dotenv pydantic qdrant-client langchain-community langchain-openai langchain-qdrant tiktoken umap-learn scikit-learn pandas pypdf
+    docker-compose up --build -d
+    ```
+    *   `--build`：會強制重新建置 Docker 映像檔，確保您的程式碼變更都已生效。
+    *   `-d`：會在背景模式下執行容器。
+
+4.  **確認服務狀態**
+    ```bash
+    docker-compose ps
+    ```
+    您應該會看到 `rag_api_service` 和 `qdrant_service` 兩個服務都處於 `running` 或 `up` 的狀態。
+
+    服務啟動後，您可以透過瀏覽器訪問 `http://localhost:8000/docs` 來查看並互動式地測試 API。
+
+### 本地開發設定 (不使用 Docker)
+
+如果您希望直接在本地環境中執行，請遵循以下步驟。
+
+**前置條件:**
+*   Python 3.9+
+*   `uv` (推薦) 或 `pip` 套件管理器。
+*   一個正在運行的 Qdrant 實例 (您可以另外透過 Docker 或其他方式啟動)。
+
+**步驟:**
+
+1.  **複製專案並進入目錄** (同上)。
+
+2.  **設定環境變數**
+    建立 `.env` 檔案 (同上)，但您需要根據您的本地 Qdrant 設定來修改 `QDRANT_URL` 和 `QDRANT_API_KEY`。
+    ```dotenv
+    # ... (OpenAI Keys)
+
+    # Qdrant 配置 (本地範例)
+    QDRANT_URL="http://localhost:6333"
+    QDRANT_API_KEY=  # 本地 Qdrant 通常不需要 API Key
+    QDRANT_COLLECTION="qdrant_test"
     ```
 
-    **使用 uv (推薦)**：
+3.  **安裝依賴 (使用 uv - 推薦)**
     ```bash
     # 安裝 uv (如果尚未安裝)
     pip install uv
     
-    # 創建並激活虛擬環境
+    # 建立並激活虛擬環境
     uv venv
     source .venv/bin/activate  # macOS/Linux
-    # .venv\Scripts\activate  # Windows
+    # .venv\\Scripts\\activate  # Windows
     
     # 安裝依賴
-    uv pip install -r requirements-uv.txt
+    uv pip install -r requirements.txt
     ```
 
-    **注意**：使用 uv 可以獲得更快的依賴解析和安裝速度。
+4.  **啟動服務**
+    ```bash
+    uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    ```
 
-## 啟動服務
+---
 
-### 方法 1：直接使用 uvicorn
+## API 使用說明
 
+您可以透過 `http://localhost:8000/docs` 的互動式介面來測試以下 API，或使用 `curl` 等工具。
+
+### 1. 更新知識庫
+
+此 API 會掃描 `knowledge_docs` 目錄，並將新增或有變更的文件處理後加入到 Qdrant 資料庫中。
+
+*   **端點**: `/api/update/knowledge`
+*   **方法**: `POST`
+
+**使用範例 (處理所有文件)**:
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+curl -X POST http://localhost:8000/api/update/knowledge \
+     -H "Content-Type: application/json" \
+     -d '{}'
 ```
+這是一個背景任務，API 會立即回傳一個任務 ID。您可以透過日誌查看更新進度。
 
-### 方法 2：使用 run.py 腳本 (推薦)
+### 2. 查詢知識庫
 
+向知識庫提問，並獲得由 RAG 系統生成的答案。
+
+*   **端點**: `/api/inference/query`
+*   **方法**: `POST`
+
+**使用範例**:其實
 ```bash
-# 基本啟動
-python run.py
-
-# 使用特定 RAG 方法
-python run.py --rag-type raptor
-
-# 啟用調試模式
-python run.py --debug --reload
-
-# 指定主機和端口
-python run.py --host 127.0.0.1 --port 9000
-```
-
-**注意**：請確保您在專案根目錄下執行這些命令，並且 `main.py` 檔案存在。
-
-服務將在指定地址上啟動（默認為 `http://0.0.0.0:8000`）。您可以透過瀏覽器訪問 `http://localhost:8000/docs` 查看 API 文件 (Swagger UI)。
-
-## API 使用
-
-### 1. 知識庫更新 API
-
-用於上傳文件並將其處理後添加到向量資料庫。
-
-*   **端點**：`/api/v1/knowledge/update` (支援文件上傳和異步處理)
-*   **方法**：`POST`
-*   **Content-Type**：`multipart/form-data`
-
-**請求範例 (上傳文件)**：
-
-```bash
-curl -X POST "http://localhost:8000/api/v1/knowledge/update" \
-     -H "accept: application/json" \
-     -H "Content-Type: multipart/form-data" \
-     -F "files=@/path/to/your/document.pdf" \
-     -F "files=@/path/to/your/another_document.txt" \
-     -F "async_processing=true"
-```
-
-**請求範例 (更新配置或處理指定文件，不含文件上傳)**：
-
-```bash
-curl -X POST "http://localhost:8000/api/v1/knowledge/update" \
-     -H "accept: application/json" \
-     -H "Content-Type: multipart/form-data" \
-     -F 'config={"force_update": true, "chunk_size": 1000}' \
-     -F 'target_files=["document1.pdf", "document2.txt"]'
-```
-
-*   **端點**：`/api/v1/knowledge/update-simple` (僅支援 JSON 請求，不支援文件上傳)
-*   **方法**：`POST`
-*   **Content-Type**：`application/json`
-
-**請求範例 (簡化更新)**：
-
-```bash
-curl -X POST "http://localhost:8000/api/v1/knowledge/update-simple" \
-     -H "accept: application/json" \
+curl -X POST http://localhost:8000/api/inference/query \
      -H "Content-Type: application/json" \
      -d '{
-           "config": {
-             "chunk_size": 1000,
-             "n_levels": 2,
-             "force_update": true
-           },
-           "target_files": ["document1.pdf", "document2.txt"]
+           "question": "CODE AGENT 是什麼？"
          }'
 ```
 
-### 2. 推論 API (Dify 相容)
-
-用於向知識庫提問並獲取相關答案和檢索到的記錄。
-
-*   **端點**：`/api/v1/inference/ask`
-*   **方法**：`POST`
-*   **Content-Type**：`application/json`
-
-**請求範例**：
-
-```bash
-curl -X POST "http://localhost:8000/api/v1/inference/ask" \
-     -H "accept: application/json" \
-     -H "Content-Type: application/json" \
-     -d '{
-           "knowledge_id": "qdrant_test",
-           "query": "你的知識庫主要內容是什麼？",
-           "retrieval_setting": {
-             "top_k": 5,
-             "score_threshold": 0.5
-           }
-         }'
-```
-
-**響應範例**：
-
+**響應範例**:其實
 ```json
 {
-  "records": [
-    {
-      "content": "文字片段",
-      "score": 0.87,
-      "title": "模索標題 (來源文件路徑)",
-      "metadata": { "key": "value" }
-    }
-    // ... 更多記錄
+  "answer": "CODE AGENT 是一種基於大型語言模型（LLM）的代碼生成框架...",
+  "source_documents": [
+    [
+      {
+        "page_content": "文檔介紹了CODE AGENT，一種基於大型語言模型的代碼生成框架...",
+        "metadata": {
+          "source": "knowledge_docs/2401.07339v2.pdf",
+          "file_hash": "fdf2768f6632646890cfd06e20de56c0",
+          "timestamp": "...",
+          "_id": "...",
+          "_collection_name": "qdrant_test"
+        }
+      },
+      0.64846873
+    ]
+    // ... 更多來源文件
   ]
 }
 ```
 
-### 3. 任務狀態查詢 API (異步更新)
-
-如果使用異步更新，可以使用此端點查詢任務進度。
-
-*   **端點**：`/api/v1/knowledge/status/{task_id}`
-*   **方法**：`GET`
-
-**請求範例**：
-
-```bash
-curl -X GET "http://localhost:8000/api/v1/knowledge/status/YOUR_TASK_ID" \
-     -H "accept: application/json"
-```
-
-### 4. 知識庫資訊 API
-
-獲取知識庫的統計資訊和狀態。
-
-*   **端點**：`/api/v1/knowledge/info`
-*   **方法**：`GET`
-
-**請求範例**：
-
-```bash
-curl -X GET "http://localhost:8000/api/v1/knowledge/info" \
-     -H "accept: application/json"
-```
-
-### 5. 健康檢查 API
-
-檢查服務是否正常運行。
-
-*   **端點**：`/api/v1/inference/health`
-*   **方法**：`GET`
-
-**請求範例**：
-
-```bash
-curl -X GET "http://localhost:8000/api/v1/inference/health" \
-     -H "accept: application/json"
-```
+---
 
 ## 專案結構
 
-### 目前結構
-
 ```
 .
-├─ core/
-│   ├─ raptor_core.py        # RAPTOR 核心演算法實現
-│   └─ rag_updator.py        # 知識庫更新邏輯
-├─ models/
-│   ├─ config_models.py      # 配置模型
-│   ├─ request_models.py     # API 請求模型
-│   └─ response_models.py    # API 響應模型
-├─ routes/
-│   ├─ inference.py          # 推論 API 端點
-│   └─ update.py             # 知識庫更新 API 端點
-├─ services/
-│   ├─ inference_service.py  # 推論業務邏輯
-│   ├─ raptor_service.py     # RAPTOR 系統初始化和狀態管理
-│   └─ update_service.py     # 知識庫更新業務邏輯
-├─ knowledge_docs/           # 存放原始知識文件 (PDF, TXT, DOCX)
-├─ .env                      # 環境變數配置
-├─ main.py                   # FastAPI 主應用程式入口
-├─ run.py                    # 使用 uvicorn 啟動服務的腳本
-├─ pyproject.toml            # 專案配置和依賴管理
-├─ requirements-uv.txt       # uv 環境依賴清單
-└─ README.md                 # 本文件
+├── core/
+│   ├── raptor_core.py        # RAPTOR 核心演算法實現
+│   └── rag_updator.py        # 知識庫更新邏輯
+├── models/
+│   ├── config_models.py      # 配置模型
+│   ├── request_models.py     # API 請求模型
+│   └── response_models.py    # API 響應模型
+├── routes/
+│   ├── inference.py          # 推論 API 端點
+│   └── update.py             # 知識庫更新 API 端點
+├── services/
+│   ├── inference_service.py  # 推論業務邏輯
+│   ├── raptor_service.py     # RAPTOR 系統初始化和狀態管理
+│   └── update_service.py     # 知識庫更新業務邏輯
+├── knowledge_docs/           # 存放原始知識文件 (PDF, TXT, DOCX)
+├── qdrant_storage/           # Qdrant 本地資料庫儲存位置 (由 Docker 掛載)
+├── .env                      # 環境變數配置
+├── docker-compose.yml        # Docker 容器編排設定
+├── Dockerfile                # FastAPI 應用的 Docker 映像檔設定
+├── main.py                   # FastAPI 主應用程式入口
+├── run.py                    # 使用 uvicorn 啟動服務的腳本
+├── pyproject.toml            # 專案配置和依賴管理
+├── requirements.txt          # Python 依賴清單
+└── README.md                 # 本文件
 ```
-
-### 建議的模組化結構
-
-為了支援多種 RAG 方法，建議將專案重構為以下結構：
-
-```
-.
-├─ core/
-│   ├─ common/              # 共用核心功能
-│   │   ├─ embeddings.py    # 嵌入功能
-│   │   ├─ vectorstore.py   # 向量存儲接口
-│   │   └─ llm.py           # LLM 接口
-│   ├─ raptor/              # RAPTOR 實現
-│   │   ├─ core.py
-│   │   └─ utils.py
-│   ├─ advanced_rag/        # Advanced RAG 實現
-│   │   ├─ core.py
-│   │   └─ utils.py
-│   └─ agentic_rag/         # Agentic RAG 實現
-│       ├─ core.py
-│       └─ utils.py
-├─ models/
-│   ├─ common/              # 共用模型
-│   │   ├─ base_models.py
-│   │   └─ config_models.py
-│   ├─ raptor/              # RAPTOR 專用模型
-│   ├─ advanced_rag/        # Advanced RAG 專用模型
-│   └─ agentic_rag/         # Agentic RAG 專用模型
-├─ routes/
-│   ├─ common.py            # 共用路由
-│   ├─ raptor.py            # RAPTOR 路由
-│   ├─ advanced_rag.py      # Advanced RAG 路由
-│   └─ agentic_rag.py       # Agentic RAG 路由
-├─ services/
-│   ├─ common/              # 共用服務
-│   │   ├─ base_service.py
-│   │   └─ vectorstore_service.py
-│   ├─ raptor/              # RAPTOR 服務
-│   ├─ advanced_rag/        # Advanced RAG 服務
-│   └─ agentic_rag/         # Agentic RAG 服務
-├─ knowledge_docs/           # 存放原始知識文件
-├─ .env                      # 環境變數配置
-├─ main.py                   # FastAPI 主應用程式入口
-├─ run.py                    # 使用 uvicorn 啟動服務的腳本
-├─ pyproject.toml            # 專案配置和依賴管理
-├─ requirements-uv.txt       # uv 環境依賴清單
-└─ README.md                 # 本文件

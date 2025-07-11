@@ -9,7 +9,7 @@ from typing import Dict, List, Tuple, Optional
 from dotenv import load_dotenv
 
 # 導入函數式 RAPTOR 核心
-from raptor_core import (
+from .raptor_core import (
     # 初始化和配置
     init_raptor_core, get_config, update_config,
     # API Key 和模型設置
@@ -148,9 +148,15 @@ def initialize_raptor_system(config: Dict) -> bool:
         qdrant_api_key = os.getenv("QDRANT_API_KEY")
         collection_name = os.getenv("QDRANT_COLLECTION", "rag_knowledge")
         
-        if not qdrant_url or not qdrant_api_key:
-            print("❌ 缺少 Qdrant 配置")
+        if not qdrant_url:
+            print("❌ 缺少 Qdrant URL 配置")
             return False
+        
+        # 如果不是本地端，則檢查 API Key
+        if "localhost" not in qdrant_url and "127.0.0.1" not in qdrant_url:
+            if not qdrant_api_key:
+                print("❌ 遠程 Qdrant 需要 API Key")
+                return False
         
         return setup_qdrant(qdrant_url, qdrant_api_key, collection_name)
         
@@ -357,7 +363,7 @@ def process_file_list(files: List[str], config: Dict) -> bool:
 
 def debug_qdrant_structure():
     """調試 Qdrant 中的數據結構"""
-    from raptor_core import _global_state
+    from .raptor_core import _global_state
     
     qdrant_client = _global_state.get('qdrant_client')
     if not qdrant_client:
@@ -412,26 +418,17 @@ def update_knowledge_base(custom_config: Dict = None,
     print("=" * 30)
     
     try:
-        # 重置 RAPTOR 核心狀態
-        reset_raptor_core()
-        
         # 載入配置
         config = load_updator_config(config_file)
         
-        # 檢查配置變更
-        config_changed = check_config_changed(config, custom_config or {})
-        
-        # 應用自定義配置
-        if custom_config:
-            print("🔧 使用自定義配置:")
-            for key, value in custom_config.items():
-                print(f"   {key}: {value}")
-                config[key] = value
-            print()
-        
-        # 初始化 RAPTOR 系統
-        if not initialize_raptor_system(config):
-            return "❌ 系統初始化失敗"
+        # 檢查系統是否已初始化
+        current_state = get_current_state()
+        if not current_state.get('qdrant_connected'):
+            print("🚨 系統未在主應用程式中正確初始化，嘗試重新初始化...")
+            if not initialize_raptor_system(config):
+                return "❌ 系統初始化失敗"
+        else:
+            print("✅ 使用主應用程式已初始化的系統狀態")
         
         # 檢查文件變更
         has_changes, new_files, changed_files = check_files_changed(
@@ -671,6 +668,36 @@ def parse_arguments():
 # ===============================================
 
 if __name__ == "__main__":
-    # This file is primarily for API integration, so the interactive main is removed.
-    # The system initialization is handled by the FastAPI application startup.
-    pass
+    args = parse_arguments()
+
+    if args.debug:
+        print("🐛 進入調試模式...")
+        config = load_updator_config()
+        if initialize_raptor_system(config):
+            debug_qdrant_structure()
+        else:
+            print("❌ 系統初始化失敗，無法進行調試")
+
+    elif args.status:
+        show_system_status()
+
+    else:
+        custom_config = {}
+        if args.chunk_size is not None:
+            custom_config['chunk_size'] = args.chunk_size
+        if args.chunk_overlap is not None:
+            custom_config['chunk_overlap'] = args.chunk_overlap
+        if args.n_levels is not None:
+            custom_config['n_levels'] = args.n_levels
+        if args.embedding_model is not None:
+            custom_config['embedding_model'] = args.embedding_model
+        if args.llm_model is not None:
+            custom_config['llm_model'] = args.llm_model
+        if args.retrieval_k is not None:
+            custom_config['retrieval_k'] = args.retrieval_k
+        
+        result = update_knowledge_base(
+            custom_config=custom_config if custom_config else None,
+            target_files=args.path
+        )
+        print(f"\n✨ 更新完成: {result}")

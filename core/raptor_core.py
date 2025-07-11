@@ -248,15 +248,16 @@ def setup_models(openai_api_key: str = None,
 
 # Qdrant 設置函數
 
+
 def setup_qdrant(qdrant_url: str,
-                qdrant_api_key: str,
+                qdrant_api_key: Optional[str] = None,
                 collection_name: str = "rag_knowledge",
                 force_recreate: bool = False) -> bool:
     """設置 Qdrant 向量資料庫
     
     Args:
         qdrant_url: Qdrant 服務 URL
-        qdrant_api_key: Qdrant API Key
+        qdrant_api_key: Qdrant API Key (可選)
         collection_name: 集合名稱
         force_recreate: 是否強制重建集合
         
@@ -267,10 +268,16 @@ def setup_qdrant(qdrant_url: str,
     
     try:
         # 連接到 Qdrant
-        _global_state['qdrant_client'] = QdrantClient(
-            url=qdrant_url,
-            api_key=qdrant_api_key
-        )
+        if "localhost" in qdrant_url or "127.0.0.1" in qdrant_url or "qdrant" in qdrant_url:
+            print("🔌 使用本地 Qdrant 連接 (無 API Key)")
+            _global_state['qdrant_client'] = QdrantClient(url=qdrant_url)
+        else:
+            if not qdrant_api_key:
+                raise ValueError("遠程 Qdrant 需要 API Key")
+            _global_state['qdrant_client'] = QdrantClient(
+                url=qdrant_url,
+                api_key=qdrant_api_key
+            )
         print(f"✅ 成功連接到 Qdrant: {qdrant_url}")
         
         # 檢查集合是否存在
@@ -1223,9 +1230,15 @@ def full_setup_raptor_system(config: Dict = None,
     if not qdrant_api_key:
         qdrant_api_key = os.getenv("QDRANT_API_KEY")
     
-    if not qdrant_url or not qdrant_api_key:
-        print("❌ 缺少 Qdrant 配置")
+    if not qdrant_url:
+        print("❌ 缺少 Qdrant URL 配置")
         return False
+    
+    # 如果不是本地端，則檢查 API Key
+    if "localhost" not in qdrant_url and "127.0.0.1" not in qdrant_url and "qdrant" not in qdrant_url:
+        if not qdrant_api_key:
+            print("❌ 遠程 Qdrant 需要 API Key")
+            return False
     
     if not setup_qdrant(qdrant_url, qdrant_api_key, collection_name):
         return False

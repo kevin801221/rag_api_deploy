@@ -1,0 +1,35 @@
+
+version: '3.8'
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant_service
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - ./qdrant_storage:/qdrant/storage
+    restart: always
+
+  api:
+    build: .
+    container_name: rag_api_service
+    ports:
+      - "8000:8000"
+    depends_on:
+      - qdrant
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - QDRANT_API_KEY=
+      - QDRANT_COLLECTION=${QDRANT_COLLECTION:-qdrant_test}
+      # 您需要在此處或 .env 文件中提供您的 OpenAI API Key
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./knowledge_docs:/app/knowledge_docs
+      - ./rag_config.json:/app/rag_config.json
+    restart: always
+
+volumes:
+  qdrant_storage:
+
